@@ -21,12 +21,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  if (file.localContent) {
+  if (file.localContent !== undefined) {
     return NextResponse.json({
       data: {
         id: file.id,
         name: file.name,
+        mimeType: file.mimeType,
         content: file.localContent,
+        dataUrl: null,
+        sourceUrl: null,
+      },
+    });
+  }
+
+  if (file.dataUrl) {
+    return NextResponse.json({
+      data: {
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        content: null,
+        dataUrl: file.dataUrl,
         sourceUrl: null,
       },
     });
@@ -60,7 +75,9 @@ export async function GET(request: NextRequest) {
       data: {
         id: file.id,
         name: file.name,
+        mimeType: file.mimeType,
         content,
+        dataUrl: null,
         sourceUrl: file.sourceUrl,
       },
     });
@@ -68,4 +85,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unable to fetch remote text file" }, { status: 502 });
   }
 }
-

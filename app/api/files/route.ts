@@ -15,39 +15,46 @@ export async function GET(request: NextRequest) {
 
 type CreateFilePayload = {
   directoryId?: string;
-  name?: string;
+  title?: string;
   content?: string;
+  mimeType?: string;
+  dataUrl?: string;
+  size?: number;
 };
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as CreateFilePayload;
   const directoryId = body.directoryId?.trim();
-  const name = body.name?.trim();
+  const title = body.title?.trim();
   const content = body.content ?? "";
+  const mimeType = body.mimeType?.trim() || "application/octet-stream";
+  const dataUrl = body.dataUrl?.trim();
 
-  if (!directoryId || !name) {
+  if (!directoryId || !title) {
     return NextResponse.json(
-      { error: "directoryId and name are required" },
-      { status: 400 }
-    );
-  }
-
-  if (!name.toLowerCase().endsWith(".txt")) {
-    return NextResponse.json(
-      { error: "Only .txt files are supported in this demo" },
+      { error: "directoryId and title are required" },
       { status: 400 }
     );
   }
 
   const now = new Date().toISOString();
+  const storageKey = crypto.randomUUID();
+  const extension = title.includes(".") ? title.split(".").pop()?.toLowerCase() ?? "bin" : "bin";
+  const textSize = new TextEncoder().encode(content).length;
+  const fallbackSize = dataUrl ? dataUrl.length : textSize;
+  const size = typeof body.size === "number" && body.size > 0 ? body.size : fallbackSize;
+
   const createdFile = {
     id: `file-${crypto.randomUUID()}`,
-    name,
+    name: title,
+    storageKey,
     directoryId,
-    size: content.length,
-    extension: "txt",
+    size,
+    extension,
+    mimeType,
     updatedAt: now,
-    localContent: content,
+    localContent: content || undefined,
+    dataUrl: dataUrl || undefined,
   };
 
   filesTable.push(createdFile);
