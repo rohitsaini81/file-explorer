@@ -11,6 +11,8 @@ export type FileRecord = {
   size: number;
   extension: string;
   updatedAt: string;
+  sourceUrl?: string;
+  localContent?: string;
 };
 
 // Temporary in-memory arrays acting like database tables.
@@ -36,6 +38,52 @@ export const filesTable: FileRecord[] = [
     size: 48,
     extension: "txt",
     updatedAt: "2026-02-12T00:00:00.000Z",
+    localContent:
+      "This is test.txt from temporary in-memory backend data in Next.js API.",
+  },
+  {
+    id: "file-2",
+    name: "simple.txt",
+    directoryId: "test",
+    size: 1200,
+    extension: "txt",
+    updatedAt: "2026-02-12T00:00:00.000Z",
+    sourceUrl: "https://sample-files.com/downloads/documents/txt/simple.txt",
+  },
+  {
+    id: "file-3",
+    name: "long-doc.txt",
+    directoryId: "test",
+    size: 4200,
+    extension: "txt",
+    updatedAt: "2026-02-12T00:00:00.000Z",
+    sourceUrl: "https://sample-files.com/downloads/documents/txt/long-doc.txt",
+  },
+  {
+    id: "file-4",
+    name: "ascii-art.txt",
+    directoryId: "test",
+    size: 900,
+    extension: "txt",
+    updatedAt: "2026-02-12T00:00:00.000Z",
+    sourceUrl: "https://sample-files.com/downloads/documents/txt/ascii-art.txt",
+  },
+  {
+    id: "file-5",
+    name: "data.txt",
+    directoryId: "test",
+    size: 1800,
+    extension: "txt",
+    updatedAt: "2026-02-12T00:00:00.000Z",
+    sourceUrl: "https://sample-files.com/downloads/documents/txt/data.txt",
+  },
+  {
+    id: "file-6",
+    name: "multilang.txt",
+    directoryId: "test",
+    size: 1600,
+    extension: "txt",
+    updatedAt: "2026-02-12T00:00:00.000Z",
+    sourceUrl: "https://sample-files.com/downloads/documents/txt/multilang.txt",
   },
 ];
-
