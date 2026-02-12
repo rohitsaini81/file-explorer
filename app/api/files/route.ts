@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { filesTable } from "@/lib/mock-db";
+import { createFileRecord, listFiles } from "@/lib/files-db";
 
 export async function GET(request: NextRequest) {
   const directoryId = request.nextUrl.searchParams.get("directoryId");
 
-  const filteredFiles = directoryId
-    ? filesTable.filter((file) => file.directoryId === directoryId)
-    : filesTable;
+  const filteredFiles = directoryId ? await listFiles(directoryId) : [];
+  console.log("[api/files] directoryId", directoryId, "rows", filteredFiles.length);
 
   return NextResponse.json({
     data: filteredFiles,
@@ -37,27 +36,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const now = new Date().toISOString();
-  const storageKey = crypto.randomUUID();
-  const extension = title.includes(".") ? title.split(".").pop()?.toLowerCase() ?? "bin" : "bin";
   const textSize = new TextEncoder().encode(content).length;
   const fallbackSize = dataUrl ? dataUrl.length : textSize;
   const size = typeof body.size === "number" && body.size > 0 ? body.size : fallbackSize;
 
-  const createdFile = {
-    id: `file-${crypto.randomUUID()}`,
-    name: title,
-    storageKey,
+  const createdFile = await createFileRecord({
     directoryId,
-    size,
-    extension,
+    title,
+    content,
+    dataUrl,
     mimeType,
-    updatedAt: now,
-    localContent: content || undefined,
-    dataUrl: dataUrl || undefined,
-  };
-
-  filesTable.push(createdFile);
+    size,
+  });
+  console.log("[api/files] created", createdFile.id);
 
   return NextResponse.json(
     {
