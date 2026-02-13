@@ -80,6 +80,31 @@ export async function listDirectories() {
 export async function listFiles(directoryId: string) {
   const pool = getDbPool();
   const userId = getDefaultUserId();
+  const directoryResult = await pool.query(
+    `
+    select id,
+           file_name,
+           parent_id
+    from public.files
+    where id = $1::uuid
+      and user_id = $2
+      and is_folder = true
+      and deleted_at is null
+    limit 1
+    `,
+    [directoryId, userId]
+  );
+
+  const selectedDirectory = directoryResult.rows[0] as
+    | { id: string; file_name: string; parent_id: string | null }
+    | undefined;
+  if (!selectedDirectory) {
+    return [];
+  }
+
+  const includeTopLevelFiles =
+    selectedDirectory.parent_id === null &&
+    String(selectedDirectory.file_name).toLowerCase() === "root";
 
   const result = await pool.query(
     `
@@ -94,12 +119,15 @@ export async function listFiles(directoryId: string) {
            updated_at
     from public.files
     where user_id = $1
-      and parent_id = $2::uuid
+      and (
+        parent_id = $2::uuid
+        or ($3::boolean = true and parent_id is null)
+      )
       and is_folder = false
       and deleted_at is null
     order by updated_at desc
     `,
-    [userId, directoryId]
+    [userId, directoryId, includeTopLevelFiles]
   );
 
   return result.rows.map((row) => {

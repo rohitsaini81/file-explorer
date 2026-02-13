@@ -79,9 +79,12 @@ export function FileManager() {
         const result = (await response.json()) as ApiResponse<Directory[]>;
         setDirectories(result.data);
 
+        const rootDirectory = result.data.find(
+          (directory) => directory.parentId === null && directory.name.toLowerCase() === "root"
+        );
         const testDirectory = result.data.find((directory) => directory.name === "test");
         const fallbackDirectory = result.data[0];
-        setSelectedDirectoryId(testDirectory?.id ?? fallbackDirectory?.id ?? "");
+        setSelectedDirectoryId(rootDirectory?.id ?? testDirectory?.id ?? fallbackDirectory?.id ?? "");
       } catch (caughtError) {
         setError(caughtError instanceof Error ? caughtError.message : "Unknown error");
       } finally {
