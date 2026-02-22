@@ -1,10 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createFileRecord, listFiles } from "@/lib/files-db";
+import { filesTable } from "@/lib/mock-db";
+
+function getExtension(name: string) {
+  const idx = name.lastIndexOf(".");
+  if (idx === -1) return "bin";
+  return name.slice(idx + 1).toLowerCase() || "bin";
+}
+
+function inferMimeType(name: string, fallback?: string) {
+  if (fallback && fallback.trim()) return fallback;
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".txt")) return "text/plain";
+  if (lower.endsWith(".json")) return "application/json";
+  if (lower.endsWith(".csv")) return "text/csv";
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  return "application/octet-stream";
+}
 
 export async function GET(request: NextRequest) {
   const directoryId = request.nextUrl.searchParams.get("directoryId");
 
-  const filteredFiles = directoryId ? await listFiles(directoryId) : [];
+  let filteredFiles = [];
+  try {
+    filteredFiles = directoryId ? await listFiles(directoryId) : [];
+  } catch (error) {
+    console.error("[api/files] falling back to mock data", error);
+    filteredFiles = directoryId
+      ? filesTable.filter((file) => file.directoryId === directoryId)
+      : [];
+  }
   console.log("[api/files] directoryId", directoryId, "rows", filteredFiles.length);
 
   return NextResponse.json({
@@ -40,14 +66,36 @@ export async function POST(request: NextRequest) {
   const fallbackSize = dataUrl ? dataUrl.length : textSize;
   const size = typeof body.size === "number" && body.size > 0 ? body.size : fallbackSize;
 
-  const createdFile = await createFileRecord({
-    directoryId,
-    title,
-    content,
-    dataUrl,
-    mimeType,
-    size,
-  });
+  let createdFile;
+  try {
+    createdFile = await createFileRecord({
+      directoryId,
+      title,
+      content,
+      dataUrl,
+      mimeType,
+      size,
+    });
+  } catch (error) {
+    console.error("[api/files] create fallback to mock data", error);
+    const id = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const storageKey = `asset-${id}`;
+    const now = new Date().toISOString();
+    const mockFile = {
+      id,
+      name: title,
+      storageKey,
+      directoryId,
+      size,
+      extension: getExtension(title),
+      mimeType: inferMimeType(title, mimeType),
+      updatedAt: now,
+      ...(dataUrl ? { dataUrl } : {}),
+      ...(!dataUrl && content ? { localContent: content } : {}),
+    };
+    filesTable.unshift(mockFile);
+    createdFile = mockFile;
+  }
   console.log("[api/files] created", createdFile.id);
 
   return NextResponse.json(
