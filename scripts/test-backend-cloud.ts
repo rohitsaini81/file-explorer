@@ -10,7 +10,9 @@ async function logResponse(label: string, response: Response) {
   console.log(JSON.stringify(payload, null, 2));
 }
 
-function makeRequest(url: string, init?: RequestInit) {
+type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
+
+function makeRequest(url: string, init?: NextRequestInit) {
   return new NextRequest(url, init);
 }
 
