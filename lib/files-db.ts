@@ -56,6 +56,16 @@ function guessMimeType(name: string, fallback?: string | null) {
   return "application/octet-stream";
 }
 
+function buildStorageKey(name: string) {
+  const cleaned = name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9._-]/g, "");
+  const suffix = cleaned.length > 0 ? cleaned : "file";
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${suffix}`;
+}
+
 export async function listDirectories() {
   const pool = getDbPool();
   const userId = getDefaultUserId();
@@ -248,6 +258,7 @@ export async function createFileRecord(params: {
   const now = new Date().toISOString();
   const name = params.title;
   const mimeType = params.mimeType || guessMimeType(name, null);
+  const storageKey = buildStorageKey(name);
 
   let storageUrl: string | null = params.dataUrl ?? null;
   if (!storageUrl && params.content) {
@@ -299,7 +310,7 @@ export async function createFileRecord(params: {
       name,
       name,
       storageUrl,
-      name,
+      storageKey,
       mimeType,
       params.size ?? null,
       params.directoryId,

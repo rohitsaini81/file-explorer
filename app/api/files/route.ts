@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createFileRecord, listFiles } from "@/lib/files-db";
 import { filesTable } from "@/lib/mock-db";
+import { isMockFallbackEnabled } from "@/lib/mock-fallback";
 
 function getExtension(name: string) {
   const idx = name.lastIndexOf(".");
@@ -19,17 +20,38 @@ function inferMimeType(name: string, fallback?: string) {
   return "application/octet-stream";
 }
 
+function isInvalidUuidError(error: unknown) {
+  return (
+    error instanceof Error && /invalid input syntax for type uuid/i.test(error.message)
+  );
+}
+
 export async function GET(request: NextRequest) {
   const directoryId = request.nextUrl.searchParams.get("directoryId");
+  const allowMockFallback = isMockFallbackEnabled();
 
   let filteredFiles = [];
   try {
     filteredFiles = directoryId ? await listFiles(directoryId) : [];
   } catch (error) {
-    console.error("[api/files] falling back to mock data", error);
-    filteredFiles = directoryId
-      ? filesTable.filter((file) => file.directoryId === directoryId)
-      : [];
+    if (allowMockFallback) {
+      console.error("[api/files] falling back to mock data", error);
+      filteredFiles = directoryId
+        ? filesTable.filter((file) => file.directoryId === directoryId)
+        : [];
+    } else {
+      console.error("[api/files] database read failed", error);
+      if (isInvalidUuidError(error)) {
+        return NextResponse.json(
+          { error: "directoryId must be a valid UUID" },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Unable to load files from persistent storage" },
+        { status: 500 }
+      );
+    }
   }
   console.log("[api/files] directoryId", directoryId, "rows", filteredFiles.length);
 
@@ -48,6 +70,7 @@ type CreateFilePayload = {
 };
 
 export async function POST(request: NextRequest) {
+  const allowMockFallback = isMockFallbackEnabled();
   const body = (await request.json()) as CreateFilePayload;
   const directoryId = body.directoryId?.trim();
   const title = body.title?.trim();
@@ -77,24 +100,38 @@ export async function POST(request: NextRequest) {
       size,
     });
   } catch (error) {
-    console.error("[api/files] create fallback to mock data", error);
-    const id = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const storageKey = `asset-${id}`;
-    const now = new Date().toISOString();
-    const mockFile = {
-      id,
-      name: title,
-      storageKey,
-      directoryId,
-      size,
-      extension: getExtension(title),
-      mimeType: inferMimeType(title, mimeType),
-      updatedAt: now,
-      ...(dataUrl ? { dataUrl } : {}),
-      ...(!dataUrl && content ? { localContent: content } : {}),
-    };
-    filesTable.unshift(mockFile);
-    createdFile = mockFile;
+    if (allowMockFallback) {
+      console.error("[api/files] create fallback to mock data", error);
+      const id = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const storageKey = `asset-${id}`;
+      const now = new Date().toISOString();
+      const mockFile = {
+        id,
+        name: title,
+        storageKey,
+        directoryId,
+        size,
+        extension: getExtension(title),
+        mimeType: inferMimeType(title, mimeType),
+        updatedAt: now,
+        ...(dataUrl ? { dataUrl } : {}),
+        ...(!dataUrl && content ? { localContent: content } : {}),
+      };
+      filesTable.unshift(mockFile);
+      createdFile = mockFile;
+    } else {
+      console.error("[api/files] database write failed", error);
+      if (isInvalidUuidError(error)) {
+        return NextResponse.json(
+          { error: "directoryId must be a valid UUID" },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Unable to save file to persistent storage" },
+        { status: 500 }
+      );
+    }
   }
   console.log("[api/files] created", createdFile.id);
 
